@@ -1,0 +1,35 @@
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="app_name">Speed Harmonization</string>
+
+
+    <!--  BluetoothChat -->
+    <string name="send">Send</string>
+    <string name="not_connected">You Are Not Connected To a Device</string>
+    <string name="bt_not_enabled_leaving">Bluetooth Was Not Enabled. Leaving Bluetooth Chat.</string>
+    <string name="title_connecting">Connecting...</string>
+    <string name="title_connected_to">Connected to
+        <xliff:g id="device_name">%1$s</xliff:g>
+    </string>
+    <string name="connection_status">Connected To : None</string>
+    <string name="title_not_connected">Not Connected</string>
+
+
+    <!-- Options Menu -->
+    <string name="secure_connect">Connect a Device - Secure</string>
+    <string name="insecure_connect">Connect a Device - Insecure</string>
+    <string name="discoverable">Make Discoverable</string>
+    <string name="title_activity_radar">Safety</string>
+
+
+    <!--  DeviceListActivity -->
+    <string name="scanning">Scanning For Devices...</string>
+    <string name="select_device">Select a Device To Connect</string>
+    <string name="none_paired">No Devices Have Been Paired</string>
+    <string name="none_found">No Devices Found</string>
+    <string name="title_paired_devices">Paired Devices</string>
+    <string name="title_other_devices">Other Available Devices</string>
+    <string name="button_scan">Scan For Devices</string>
+    <string name="title_activity_main">MainActivity</string>
+
+
+</resources>

@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+      xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/ConnectionStatus_Menu"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:background="#fffce1"
+        android:clickable="false"
+        android:elevation="@dimen/abc_action_bar_progress_bar_size"
+        android:enabled="true"
+        android:gravity="center_horizontal"
+        android:padding="5dp"
+        android:textAlignment="center"
+        android:textColor="#000000"
+        android:textSize="8sp"
+        android:title="@string/connection_status"
+        app:showAsAction="always"/>
+    <item
+        android:id="@+id/ShowBluetoothNameToOthers"
+        android:icon="@drawable/bluetooth_disabled"
+        android:title="@string/secure_connect"
+        android:visible="true"
+        app:showAsAction="always"/>
+    <item
+        android:id="@+id/X_Sign"
+        android:icon="@drawable/x_sign"
+        android:title="X Sign"
+        android:visible="true"
+        app:showAsAction="always"/>
+    <item
+        android:id="@+id/Y_Sign"
+        android:icon="@drawable/y_sign"
+        android:title="Y Sign"
+        android:visible="true"
+        app:showAsAction="always"/>
+    <item
+        android:id="@+id/ShowInformation"
+        android:icon="@drawable/information_enabled"
+        android:title="Car Data"
+        android:visible="true"
+        app:showAsAction="always"/>
+
+
+    <item
+        android:id="@+id/StartAlert"
+        android:icon="@drawable/start_24"
+        android:title="Start Alert"
+        android:visible="true"
+        app:showAsAction="ifRoom"/>
+
+    <item
+        android:id="@+id/StopAlert"
+        android:icon="@drawable/stop_24"
+        android:title="Stop Alert"
+        android:visible="true"
+        app:showAsAction="ifRoom"/>
+
+    <item
+        android:id="@+id/Distance"
+        android:icon="@drawable/distance"
+        android:title="Set Distance Threashold"
+        android:visible="true"
+        app:showAsAction="ifRoom">
+        <menu xmlns:android="http://schemas.android.com/apk/res/android">
+            <item
+                android:id="@+id/Direction"
+                android:title="Enable Angle Rotation"
+                android:visible="true"
+                app:showAsAction="ifRoom"/>
+            <item
+                android:id="@+id/Five"
+                android:title=" 5 Meters"
+                android:visible="true"
+                app:showAsAction="ifRoom"/>
+            <item
+                android:id="@+id/Ten"
+                android:title="10 Meters"
+                android:visible="true"
+                app:showAsAction="ifRoom"/>
+            <item
+                android:id="@+id/Fifteen"
+                android:title="15 Meters"
+                android:visible="true"
+                app:showAsAction="ifRoom"/>
+            <item
+                android:id="@+id/Twenty"
+                android:title="20  Meters"
+                android:visible="true"
+                app:showAsAction="ifRoom"/>
+            <item
+                android:id="@+id/TwentyFive"
+                android:title="25 Meters"
+                android:visible="true"
+                app:showAsAction="ifRoom"/>
+        </menu>
+    </item>
+
+</menu>

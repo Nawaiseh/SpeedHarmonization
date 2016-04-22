@@ -1,0 +1,894 @@
+package edu.smu.trl.safety.Graphics;
+
+
+import android.content.Context;
+import android.content.res.Configuration;
+import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Matrix;
+import android.graphics.Paint;
+import android.view.SurfaceHolder;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.Locale;
+import java.util.Random;
+
+import edu.smu.trl.safety.Data.Car;
+import edu.smu.trl.safety.Data.Car.DistanceUnit;
+import edu.smu.trl.safety.Data.Number3d;
+import edu.smu.trl.safety.Data.Route;
+import edu.smu.trl.safety.RendererActivity;
+import edu.smu.trl.safety.bluetooth.Constants;
+
+public class GraphicsLoop implements Runnable
+{
+
+	private static final int MAXIMUM_ALLOWED_SKIPPED_FRAMES = 10;
+	private static final long SIMULATION_TIME_IN_MILLISECONDS = 2;
+	private static final long FRAME_TIME_IN_MILLISECONDS = 20;
+	private static final long LASTUPDATE_THREASHOLD = 50000000;
+	private final RendererActivity RendererActivity;
+	private final SurfaceHolder SurfaceHolder;
+	private final Resources Resources;
+	private final Paint Paint = new Paint();
+	private final Car MyCar;
+	Random Random = new Random();
+	float DX = (Car.Width / 2F);
+	float DY = (Car.Length / 2F);
+	Number3d My_Car_Location = new Number3d(0, 0, 0);
+	Number3d Other_Car_Location = new Number3d(0, 0, 0);
+	private boolean Running = true;
+	private float Width, Width__2;
+	private float Height, Height_2;
+	private float My_Rotation_Angle_In_Degrees = 0;
+	private float Theta;
+	private float Scale = 0;
+	private float Screen_To_Display_Field__Width_Ratio = Width / Route.FIELD__WIDTH;
+	private float Screen_To_Display_Field_Length_Ratio = Height / Route.FIELD_LENGTH;
+	private float Translated_CenterX;
+	private float Translated_CenterY;
+
+	public GraphicsLoop(Context Context, SurfaceHolder SurfaceHolder, Resources Resources)
+	{
+		this.SurfaceHolder = SurfaceHolder;
+
+		this.Resources = Resources;
+
+		this.RendererActivity = (RendererActivity) Context;
+
+		MyCar = RendererActivity.MyCar;
+
+		Paint.setTextSize(15 * 3);   // Font Size
+
+	}
+
+	public static Bitmap RotateBitmap(Bitmap SourceBitmap, float Theta)
+	{
+		Matrix matrix = new Matrix();
+		matrix.postRotate(Theta);
+		return Bitmap.createBitmap(SourceBitmap, 0, 0, SourceBitmap.getWidth(), SourceBitmap.getHeight(), matrix, true);
+	}
+
+	@Override
+	public void run()
+	{
+		long Simulation_Time = new Date().getTime();
+		long Frame_Start_Time = Simulation_Time;
+		while (Running)
+		{
+
+
+			Simulation_Time = ApplyPhysics(Simulation_Time, Frame_Start_Time);
+			TryToDrawGraphics();
+			Frame_Start_Time = WaitForNextFrame(Frame_Start_Time);
+
+		}
+	}
+
+	private long WaitForNextFrame(long Frame_Start_Time)
+	{
+		long Frame_Next_Start_Time = new Date().getTime();
+		long How_Long_It_Took = Frame_Next_Start_Time - Frame_Start_Time;
+		long Wait_Time = FRAME_TIME_IN_MILLISECONDS - How_Long_It_Took;
+		if (Wait_Time > 0)
+		{
+			try
+			{
+				Thread.sleep(Wait_Time);
+			}
+			catch (InterruptedException InterruptedException)
+			{
+				InterruptedException.printStackTrace();
+			}
+		}
+
+		return Frame_Next_Start_Time;
+	}
+
+	private long ApplyPhysics(long Simulation_Time, long Frame_Start_Time)
+	{
+		for (int Skipped = 0; Skipped < MAXIMUM_ALLOWED_SKIPPED_FRAMES; Skipped++)
+		{
+			if (Simulation_Time >= Frame_Start_Time)
+			{
+				break;
+			}
+		}
+
+		if (RendererActivity.UseDummyData)
+		{
+			MoveCars();
+		}
+
+
+		//  Log.i("", "Graphis Is Running");
+
+
+		Simulation_Time += SIMULATION_TIME_IN_MILLISECONDS;
+		return Simulation_Time;
+	}
+
+	private void MoveCars()
+	{
+		Number3d Center = new Number3d();
+		Number3d OtherCarLocation = new Number3d();
+
+		float MinDistance = Float.MAX_VALUE;
+
+
+		if (MyCar != null && MyCar.ID != null)
+		{
+			MyCar.Move(MyCar);
+			MyCar.Direction = 40;
+			if (MyCar.TIME_LEFT_TO_UPDATE_SPEED <= 0)
+			{
+				MyCar.TIME_LEFT_TO_UPDATE_SPEED = MyCar.MODIFY_SPEED_RATE;
+				MyCar.ModifySpeed(Random.nextInt(4) + 1);
+			}
+		}
+
+		for (Car Car : RendererActivity.Cars.values())
+		{
+
+			OtherCarLocation.Y = Center.Y + ((Car.Location.Y - (MyCar != null ? MyCar.Location.Y : 0)) * 3);
+
+			if (MinDistance > Car.Distance)
+			{
+				MinDistance = Car.Distance;
+			}
+
+			if (Car != MyCar)
+			{
+				Car.Move(MyCar);
+				if (Car.TIME_LEFT_TO_UPDATE_SPEED <= 0)
+				{
+					Car.TIME_LEFT_TO_UPDATE_SPEED = MyCar != null ? MyCar.MODIFY_SPEED_RATE : 0;
+					Car.ModifySpeed(Random.nextInt(2) + 1);
+				}
+
+				Car.RelativeLocation.X = Car.GraphicsLocation.X - (MyCar != null ? MyCar.GraphicsLocation.X : 0);
+				Car.RelativeLocation.Y = Car.GraphicsLocation.Y - (MyCar != null ? MyCar.GraphicsLocation.Y : 0);
+			}
+		}
+	}
+
+	private void ProcessData(Canvas Canvas)
+	{
+		long TimeNow = System.currentTimeMillis();
+
+		float MinDistance = Float.MAX_VALUE;
+
+		if (MyCar != null && MyCar.ID != null)
+		{
+			MyCar.RelativeLocation.X = 0.5F * Canvas.getWidth();
+			MyCar.RelativeLocation.Y = 0.5F * Canvas.getHeight();
+
+			if (RendererActivity.FocusedGraphics)
+			{
+				MyCar.DrawingLocation.X = MyCar.RelativeLocation.X;
+				MyCar.DrawingLocation.Y = MyCar.RelativeLocation.Y;
+			}
+			ArrayList<Car> OutDatedCars = new ArrayList<>();
+			for (Car Car : RendererActivity.Cars.values())
+			{
+				if (Car != null && Car.ID != null && Car != MyCar)
+				{
+					if ((TimeNow - Car.LastUpdated) > RendererActivity.LAST_UPDATE_MAX_THRESHOLD)
+					{
+						OutDatedCars.add(Car);
+						continue;
+					}
+					if (MinDistance > Car.Distance)
+					{
+						MinDistance = Car.Distance;
+					}
+				}
+			}
+
+			if (!OutDatedCars.isEmpty() && !RendererActivity.Cars.isEmpty())
+			{
+				for (Car Car : OutDatedCars)
+				{
+					RendererActivity.Cars.remove(Car.ID);
+				}
+			}
+			if (MinDistance <= RendererActivity.BluetoothChatService.ThreasholdDistance)
+			{
+				String Message = String.format(Locale.US, "Alert!:- A Car is Closer than %d", RendererActivity.BluetoothChatService.ThreasholdDistance);
+				RendererActivity.MessageHandler.obtainMessage(Constants.PLAY_ALERT_SOUND, Message.length(), -1, Message).sendToTarget();
+				RendererActivity.BluetoothChatService.LastUpdate = System.currentTimeMillis();
+			} else
+			{
+
+				String Message = "Cars Are Far Enough";
+				RendererActivity.MessageHandler.obtainMessage(Constants.STOP_ALERT_SOUND, Message.length(), -1, Message).sendToTarget();
+			}
+		}
+
+	}
+
+	public void PleaseStop()
+	{
+		Running = false;
+	}
+
+	private void TryToDrawGraphics()
+	{
+
+		Canvas Canvas = SurfaceHolder.lockCanvas();
+
+		if (Canvas == null)
+		{
+			return;
+		}
+		try
+		{
+			synchronized (RendererActivity.Cars)
+			{
+				ProcessData(Canvas);
+				if (RendererActivity.UseDummyData)
+				{
+					MoveCars();
+					DrawGraphicsUsingDummyDataFocusedOnMyCar_RotateOtherCarsOnly(Canvas);
+				} else
+				{
+					DrawGraphicsFocusedOnMyCar_RotateOtherCarsOnly(Canvas);
+				}
+
+				/*
+				if (RendererActivity.UseDummyData && RendererActivity.FocusedGraphics)
+				{
+					MoveCars();
+
+					if (RendererActivity.RotateAll)
+					{
+						DrawGraphicsUsingDummyDataFocusedOnMyCar_RotateAllCars(Canvas);
+					} else
+					{
+						DrawGraphicsUsingDummyDataFocusedOnMyCar_RotateOtherCarsOnly(Canvas);
+					}
+
+				} else if (RendererActivity.UseDummyData && !RendererActivity.FocusedGraphics)
+				{
+					DrawGraphicsUsingDummyDataZoomedOut(Canvas);
+				} else if (!RendererActivity.UseDummyData && RendererActivity.FocusedGraphics)
+				{
+					if (RendererActivity.RotateAll)
+					{
+						DrawGraphicsFocusedOnMyCarr_RotateAllCars(Canvas);
+					} else
+					{
+						DrawGraphicsFocusedOnMyCar_RotateOtherCarsOnly(Canvas);
+					}
+				} else
+				{
+					DrawGraphicsZoomedOut(Canvas);
+				}
+				*/
+			}
+		}
+		finally
+		{
+			SurfaceHolder.unlockCanvasAndPost(Canvas);
+		}
+	}
+
+	private void DrawGraphicsUsingDummyDataFocusedOnMyCar_RotateAllCars(Canvas Canvas)
+	{
+
+		Canvas.drawColor(Color.LTGRAY);
+		Number3d Center = new Number3d(0, 0, 0);
+		//Number3d Center = new Number3d(MyCar.Location.X, MyCar.Location.Y, 0);
+
+		int Orientation = Resources.getConfiguration().orientation;
+
+		Width = (Orientation == Configuration.ORIENTATION_LANDSCAPE) ? Canvas.getWidth() : Canvas.getHeight();
+		Height = (Orientation == Configuration.ORIENTATION_LANDSCAPE) ? Canvas.getHeight() : Canvas.getWidth();
+
+		float Width__2 = Width / 2F;
+		float Height_2 = Height / 2F;
+
+		Translated_CenterX = Width__2;
+		Translated_CenterY = Height_2;
+
+		Screen_To_Display_Field__Width_Ratio = Width / Route.DISPLAYED_FIELD__WIDTH;
+		Screen_To_Display_Field_Length_Ratio = Height / Route.DISPLAYED_FIELD_LENGTH;
+
+		float MyTheta = (-MyCar.Direction);
+		MyTheta = (MyTheta < 0) ? (MyTheta + 360) % 360 : MyTheta % 360;
+
+
+		float ScreenRatio = Width / Height; // > 1 : X Width is bigger
+		float Scale = 0;
+		if (ScreenRatio <= 1)
+		{
+			Scale = Width / Route.FOCUSED_FIELD__WIDTH;
+		} else if (ScreenRatio > 1)
+		{
+			Scale = Height / Route.FOCUSED_FIELD_LENGTH;
+		}
+
+		for (Number3d Location : Route.Locations)
+		{
+
+			float X = ((Location.X - MyCar.Location.X) * Scale);
+			float Y = ((Location.Y - MyCar.Location.Y) * Scale);
+
+			Canvas.save();
+			Canvas.translate(MyCar.DrawingLocation.X - DX, MyCar.DrawingLocation.Y - DY);
+			Canvas.drawPoint(X, Y, Paint);
+			Canvas.translate(0, 0);
+			Canvas.restore();
+		}
+
+
+		if (MyCar != null && MyCar.ID != null)
+		{
+			Canvas.save();
+
+			Canvas.translate(MyCar.DrawingLocation.X - DX, MyCar.DrawingLocation.Y - DY);
+			Canvas.rotate(MyTheta, 0, 0);
+			Canvas.drawBitmap(MyCar.Vehicle, 0, 0, Paint);
+			Canvas.rotate(-MyTheta, 0, 0);
+/*
+			if (RendererActivity.ShowInformation)
+			{
+				Canvas.drawText(MyCar.ID(), -MyCar.ID().length() * 7, -30, Paint);
+				Canvas.drawText(MyCar.Location(), -MyCar.Location().length() * 7, -10, Paint);
+				Canvas.drawText(MyCar.Speed(), -MyCar.Speed().length() * 7, +80, Paint);
+			}
+			*/
+			Canvas.translate(0, 0);
+			Canvas.restore();
+		}
+		for (Car Car : RendererActivity.Cars.values())
+		{
+			if (Car != null && Car.ID != null && Car != MyCar)
+			{
+				Car.DrawingLocation.X = ((Car.Location.X - MyCar.Location.X) * Scale) + Width__2;
+				Car.DrawingLocation.Y = ((Car.Location.Y - MyCar.Location.Y) * Scale) + Height_2;
+				float Theta = (-Car.Direction);
+				Theta = (Theta < 0) ? (Theta + 360) : Theta;
+
+				Canvas.save();
+				Canvas.translate(Car.DrawingLocation.X - DX, Car.DrawingLocation.Y - DY);
+				Canvas.rotate(Theta, 0, 0);
+				Canvas.drawBitmap(Car.Vehicle, 0, 0, Paint);
+				Canvas.rotate(-Theta, 0, 0);
+
+				if (RendererActivity.ShowInformation)
+				{
+					Canvas.drawText(Car.ID(), -Car.ID().length() * 7, -30, Paint);
+					Canvas.drawText(Car.Location(), -Car.Location().length() * 7, -10, Paint);
+					Canvas.drawText(Car.Distance(), -Car.Distance().length() * 7, +50, Paint);
+					Canvas.drawText(Car.Speed(), -Car.Speed().length() * 7, +70, Paint);
+				}
+
+				Canvas.translate(0, 0);
+				Canvas.restore();
+			}
+		}
+	}
+
+	private void Initialize_Graphics_Settings(Canvas Canvas)
+	{
+		Canvas.drawColor(Color.LTGRAY);
+		int Orientation = Resources.getConfiguration().orientation;
+		Width = (Orientation == Configuration.ORIENTATION_LANDSCAPE) ? Canvas.getWidth() : Canvas.getHeight();
+		Height = (Orientation == Configuration.ORIENTATION_LANDSCAPE) ? Canvas.getHeight() : Canvas.getWidth();
+
+		Width__2 = Width / 2F;
+		Height_2 = Height / 2F;
+
+		Translated_CenterX = Width__2;
+		Translated_CenterY = Height_2;
+
+		Screen_To_Display_Field__Width_Ratio = Width / Route.DISPLAYED_FIELD__WIDTH;
+		Screen_To_Display_Field_Length_Ratio = Height / Route.DISPLAYED_FIELD_LENGTH;
+
+	}
+
+	Number3d RotatePoint(Number3d PivotPoint, float angle, Number3d Point)
+	{
+		Number3d NewPoint = new Number3d(0, 0, 0);
+		float Sin = (float) Math.sin(angle);
+		float Cos = (float) Math.cos(angle);
+
+		// translate point back to origin:
+		Point.X -= PivotPoint.X;
+		Point.Y -= PivotPoint.Y;
+
+		// rotate point
+		float xnew = Point.X * Cos - Point.Y * Sin;
+		float ynew = Point.X * Sin + Point.Y * Cos;
+
+		// translate point back:
+		NewPoint.X = xnew + PivotPoint.X;
+		NewPoint.Y = ynew + PivotPoint.Y;
+		return NewPoint;
+	}
+
+	private void DrawPath(Canvas Canvas)
+	{
+
+		for (Number3d Location : Route.Locations)
+		{
+			Number3d _Location = RotatePoint(MyCar.Location, -Theta, Location);
+			_Location.X = ((_Location.X - MyCar.Location.X) * Scale);
+			_Location.Y = ((_Location.Y - MyCar.Location.Y) * Scale);
+			Canvas.drawPoint(_Location.X, _Location.Y, Paint);
+		}
+	}
+
+	private void DrawMyCar(Canvas Canvas)
+	{
+		Canvas.save();
+		Canvas.translate((Width__2 - DX), (Height_2 - DY));
+		Canvas.drawBitmap(RendererActivity.Car_Blue, 0, 0, Paint);
+
+
+		if (RendererActivity.ShowInformation && MyCar != null && MyCar.ID != null)
+		{
+			Canvas.drawText(MyCar.Location(), MyCar.Location().length(), -60, Paint);
+			Canvas.drawText(MyCar.ID(), -(MyCar.ID().length() / 2f) * 10f, -40, Paint);
+			Canvas.drawText(MyCar.Speed(), -(MyCar.Speed().length() / 2f) * 10f, -20, Paint);
+		}
+		Canvas.restore();
+		Canvas.save();
+		Canvas.drawBitmap(RotateBitmap(RendererActivity.Compass, My_Rotation_Angle_In_Degrees), 0, 0, Paint);
+		Canvas.restore();
+	}
+
+	private void DrawOtherCars(Canvas Canvas)
+	{
+		for (Car Car : RendererActivity.Cars.values())
+		{
+			if (Car != null && Car.ID != null && Car != MyCar)
+			{
+
+				Other_Car_Location.X = (RendererActivity.UseDummyData) ? Car.Location.X : Car.ConvertDistance(Car.Location.X, DistanceUnit.Meters);
+				Other_Car_Location.Y = (RendererActivity.UseDummyData) ? Car.Location.Y : Car.ConvertDistance(Car.Location.Y, DistanceUnit.Meters);
+
+
+				//	Other_Car_Location.X = Car.Location.X;
+				//	Other_Car_Location.Y =  Car.Location.Y;
+				Other_Car_Location.X = (Other_Car_Location.X - My_Car_Location.X) * RendererActivity.SignX;
+				Other_Car_Location.Y = (Other_Car_Location.Y - My_Car_Location.Y) * RendererActivity.SignY;
+
+				Number3d _Location = RotatePoint(My_Car_Location, Theta, Other_Car_Location);
+
+
+				Other_Car_Location.X = (_Location.X * Scale);
+				Other_Car_Location.Y = (_Location.Y * Scale);
+
+
+				float Theta = (Car.Direction - MyCar.Direction);
+
+
+				Canvas.rotate(Theta, Other_Car_Location.X, -Other_Car_Location.Y);
+				Canvas.drawBitmap(Car.Vehicle, Other_Car_Location.X, -Other_Car_Location.Y, Paint);
+				Canvas.rotate(-Theta, Other_Car_Location.X, -Other_Car_Location.Y);
+
+				if (RendererActivity.ShowInformation)
+				{
+					Canvas.drawText(Car.Location(), _Location.X - Car.Location().length(), _Location.Y - 60, Paint);
+					Canvas.drawText(Car.Distance(), _Location.X - Car.Distance().length(), _Location.Y - 40, Paint);
+					Canvas.drawText(Car.Speed(), _Location.X - Car.Speed().length(), _Location.Y - 20, Paint);
+				}
+
+			}
+		}
+	}
+
+	private void DrawGraphicsUsingDummyDataFocusedOnMyCar_RotateOtherCarsOnly(Canvas Canvas)
+	{
+		Canvas.drawColor(Color.LTGRAY);
+		Initialize_Graphics_Settings(Canvas);
+		if (MyCar != null && MyCar.ID != null)
+		{
+
+			My_Car_Location.X = (RendererActivity.UseDummyData) ? MyCar.Location.X : Car.ConvertDistance(MyCar.Location.X, DistanceUnit.Meters);
+			My_Car_Location.Y = (RendererActivity.UseDummyData) ? MyCar.Location.Y : Car.ConvertDistance(MyCar.Location.Y, DistanceUnit.Meters);
+			Canvas.save();
+			Canvas.translate((Width__2 - DX), (Height_2 - DY));
+			DrawPath(Canvas);
+			DrawOtherCars(Canvas);
+
+			Canvas.restore();
+			DrawMyCar(Canvas);
+		}
+
+	}
+
+	private void _DrawGraphicsUsingDummyDataFocusedOnMyCar_RotateOtherCarsOnly(Canvas Canvas)
+	{
+		Initialize_Graphics_Settings(Canvas);
+		Canvas.save();
+
+		/*if (MyCar != null && MyCar.ID != null)
+		{
+			Canvas.translate(MyCar.DrawingLocation.X - DX, MyCar.DrawingLocation.Y - DY);
+			Canvas.rotate(-PreviousRotation, 0, 0);
+			Canvas.translate( -(MyCar.DrawingLocation.X - DX), -(MyCar.DrawingLocation.Y - DY));
+		}
+*/
+
+		for (Number3d Location : Route.Locations)
+		{
+			float X = ((Location.X - MyCar.Location.X) * Scale);
+			float Y = ((Location.Y - MyCar.Location.Y) * Scale);
+			Canvas.drawPoint(X, Y, Paint);
+		}
+
+
+		for (Car Car : RendererActivity.Cars.values())
+		{
+			if (Car != null && Car.ID != null && Car != MyCar)
+			{
+				Car.DrawingLocation.X = ((Car.Location.X - MyCar.Location.X) * Scale) + Width__2;
+				Car.DrawingLocation.Y = ((Car.Location.Y - MyCar.Location.Y) * Scale) + Height_2;
+				float Theta = (-Car.Direction);
+				Theta = (Theta < 0) ? (Theta + 360) : Theta;
+
+				Canvas.translate(Car.DrawingLocation.X - DX, Car.DrawingLocation.Y - DY);
+				Canvas.rotate(Theta, 0, 0);
+				Canvas.drawBitmap(Car.Vehicle, 0, 0, Paint);
+				Canvas.rotate(-Theta, 0, 0);
+
+				if (RendererActivity.ShowInformation)
+				{
+					Canvas.drawText(Car.Distance(), -Car.Distance().length() * 5, -40, Paint);
+					Canvas.drawText(Car.Speed(), -Car.Speed().length() * 7, -20, Paint);
+				}
+
+				Canvas.translate(-(Car.DrawingLocation.X - DX), -(Car.DrawingLocation.Y - DY));
+			}
+		}
+
+
+		if (MyCar != null && MyCar.ID != null)
+		{
+
+			Canvas.translate(MyCar.DrawingLocation.X - DX, MyCar.DrawingLocation.Y - DY);
+			Canvas.drawBitmap(MyCar.Vehicle, 0, 0, Paint);
+			//Canvas.rotate(My_Rotation_Angle_In_Degrees, 0, 0);
+			//Canvas.rotate(-My_Rotation_Angle_In_Degrees, 0, 0);
+/*
+			if (RendererActivity.ShowInformation)
+			{
+				Canvas.drawText(MyCar.ID(), -MyCar.ID().length() * 7, -30, Paint);
+				Canvas.drawText(MyCar.Location(), -MyCar.Location().length() * 7, -10, Paint);
+				Canvas.drawText(MyCar.Speed(), -MyCar.Speed().length() * 7, +80, Paint);
+			}
+			*/
+			Canvas.translate(-(MyCar.DrawingLocation.X - DX), -(MyCar.DrawingLocation.Y - DY));
+
+			Canvas.drawBitmap(RotateBitmap(RendererActivity.Compass, My_Rotation_Angle_In_Degrees), 0, 0, Paint);
+
+
+			Canvas.restore();
+		}
+	}
+
+	private void DrawGraphicsFocusedOnMyCarr_RotateAllCars(Canvas Canvas)
+	{
+		float ScreenRatio = Width / Height; // > 1 : X Width is bigger
+
+		float Scale = 0;
+		if (ScreenRatio <= 1)
+		{
+			Scale = Width / Route.FOCUSED_FIELD__WIDTH;
+		} else if (ScreenRatio > 1)
+		{
+			Scale = Height / Route.FOCUSED_FIELD_LENGTH;
+		}
+
+
+		Canvas.drawColor(Color.LTGRAY);
+		Number3d Center = new Number3d(0, 0, 0);
+		int Orientation = Resources.getConfiguration().orientation;
+
+		Width = (Orientation == Configuration.ORIENTATION_LANDSCAPE) ? Canvas.getWidth() : Canvas.getHeight();
+		Height = (Orientation == Configuration.ORIENTATION_LANDSCAPE) ? Canvas.getHeight() : Canvas.getWidth();
+
+		float Width__2 = Width / 2F;
+		float Height_2 = Height / 2F;
+
+		Translated_CenterX = Width__2;
+		Translated_CenterY = Height_2;
+
+		Screen_To_Display_Field__Width_Ratio = Width / Route.DISPLAYED_FIELD__WIDTH;
+		Screen_To_Display_Field_Length_Ratio = Height / Route.DISPLAYED_FIELD_LENGTH;
+
+		if (MyCar != null && MyCar.ID != null)
+		{
+
+			Canvas.save();
+			float Theta = (-MyCar.Direction + 90f);
+			Theta = (Theta < 0) ? (Theta + 360) : Theta;
+			Canvas.translate(MyCar.DrawingLocation.X - DX, MyCar.DrawingLocation.Y - DY);
+			Canvas.rotate(Theta, 0, 0);
+			Canvas.drawBitmap(MyCar.Vehicle, 0, 0, Paint);
+			Canvas.rotate(-Theta, 0, 0);
+/*
+
+			if (RendererActivity.ShowInformation)
+			{
+				Canvas.drawText(MyCar.ID(), -MyCar.ID().length() * 7, -30, Paint);
+				Canvas.drawText(MyCar.Location(), -MyCar.Location().length() * 7, -10, Paint);
+				Canvas.drawText(MyCar.Speed(), -MyCar.Speed().length() * 7, +80, Paint);
+			}
+
+*/
+			Canvas.translate(0, 0);
+			Canvas.restore();
+		}
+		for (Car Car : RendererActivity.Cars.values())
+		{
+			if (Car != null && Car.ID != null && Car != MyCar)
+			{
+
+
+				Car.DrawingLocation.X = (Car.RelativeLocation.X * Scale);
+				Car.DrawingLocation.Y = (Car.RelativeLocation.Y * Scale);
+
+
+				float Theta = (-Car.Direction + 90f);
+				Theta = (Theta < 0) ? (Theta + 360) : Theta;
+
+				Canvas.save();
+				Canvas.translate(MyCar.DrawingLocation.X - DX, MyCar.DrawingLocation.Y - DY);
+				Canvas.rotate(Theta, 0, 0);
+				Canvas.drawBitmap(Car.Vehicle, Car.DrawingLocation.X, Car.DrawingLocation.Y, Paint);
+				Canvas.rotate(-Theta, 0, 0);
+				if (RendererActivity.ShowInformation)
+				{
+					Canvas.drawText(Car.ID(), -Car.ID().length() * 7, -30, Paint);
+					Canvas.drawText(Car.Location(), -Car.Location().length() * 7, -10, Paint);
+					Canvas.drawText(Car.Location(), -Car.Speed().length() * 7, +80, Paint);
+					Canvas.drawText(Car.Speed(), -Car.Speed().length() * 7, +100, Paint);
+				}
+
+				Canvas.translate(0, 0);
+				Canvas.restore();
+			}
+		}
+	}
+
+
+	private void DrawGraphicsFocusedOnMyCar_RotateOtherCarsOnly(Canvas Canvas)
+	{
+
+		Initialize_Graphics_Settings(Canvas);
+		if (MyCar != null && MyCar.ID != null)
+		{
+
+			My_Rotation_Angle_In_Degrees = (MyCar.Direction);
+			/*My_Rotation_Angle_In_Degrees = (My_Rotation_Angle_In_Degrees < 0) ? (My_Rotation_Angle_In_Degrees + 360) : My_Rotation_Angle_In_Degrees;*/
+			Theta = (float) Math.toRadians(My_Rotation_Angle_In_Degrees);
+
+			float ScreenRatio = Width / Height; // > 1 : X Width is bigger
+			Scale = (ScreenRatio <= 1) ? (Width / Route.FOCUSED_FIELD__WIDTH) : (Height / Route.FOCUSED_FIELD_LENGTH);
+			Canvas.save();
+			Canvas.translate((Width__2 - DX), (Height_2 - DY));
+			//DrawPath(Canvas);
+			DrawOtherCars(Canvas);
+			Canvas.restore();
+
+		}
+		DrawMyCar(Canvas);
+
+	}
+
+	private void DrawGraphicsUsingDummyDataZoomedOut(Canvas Canvas)
+	{
+
+		Canvas.drawColor(Color.LTGRAY);
+		Number3d Center = new Number3d(0, 0, 0);
+
+		int Orientation = Resources.getConfiguration().orientation;
+
+		Width = (Orientation == Configuration.ORIENTATION_LANDSCAPE) ? Canvas.getWidth() : Canvas.getHeight() - 500;
+		Height = (Orientation == Configuration.ORIENTATION_LANDSCAPE) ? Canvas.getHeight() : Canvas.getWidth() + 600;
+
+		Translated_CenterX = Width * Route.FIELD__WIDTH / Route.DISPLAYED_FIELD__WIDTH;
+		Translated_CenterY = Height * Route.FIELD_LENGTH / Route.DISPLAYED_FIELD_LENGTH;
+		Screen_To_Display_Field__Width_Ratio = Width / Route.DISPLAYED_FIELD__WIDTH;
+		Screen_To_Display_Field_Length_Ratio = Height / Route.DISPLAYED_FIELD_LENGTH;
+
+		for (Number3d Location : Route.Locations)
+		{
+			float X = ((Location.X + Route.FIELD__WIDTH_2) * Route._WIDTH_RATIO) + (((1 - Route._WIDTH_RATIO) / 2) * Route.DISPLAYED_FIELD__WIDTH);
+			float Y = ((Location.Y + Route.FIELD_LENGTH_2) * Route.LENGTH_RATIO) + (((1 - Route.LENGTH_RATIO) / 2) * Route.DISPLAYED_FIELD_LENGTH);
+			X = X * Screen_To_Display_Field__Width_Ratio;
+			Y = Y * Screen_To_Display_Field_Length_Ratio;
+			Canvas.drawPoint(X, Y, Paint);
+		}
+
+		if (MyCar != null && MyCar.ID != null)
+		{
+
+
+			MyCar.DrawingLocation.X = ((MyCar.Location.X + Route.FIELD__WIDTH_2) * Route._WIDTH_RATIO) + (((1 - Route._WIDTH_RATIO) / 2) * Route.DISPLAYED_FIELD__WIDTH);
+			MyCar.DrawingLocation.Y = ((MyCar.Location.Y + Route.FIELD_LENGTH_2) * Route.LENGTH_RATIO) + (((1 - Route.LENGTH_RATIO) / 2) * Route.DISPLAYED_FIELD_LENGTH);
+
+			MyCar.DrawingLocation.X = MyCar.DrawingLocation.X * Screen_To_Display_Field__Width_Ratio;
+			MyCar.DrawingLocation.Y = MyCar.DrawingLocation.Y * Screen_To_Display_Field_Length_Ratio;
+
+			Canvas.save();
+			Canvas.rotate(MyCar.Direction, MyCar.DrawingLocation.X, MyCar.DrawingLocation.Y);
+			Canvas.drawBitmap(MyCar.Vehicle, MyCar.DrawingLocation.X, MyCar.DrawingLocation.Y, Paint);
+			Canvas.rotate(-MyCar.Direction, MyCar.DrawingLocation.X, MyCar.DrawingLocation.Y);
+			Canvas.restore();
+
+			if (RendererActivity.ShowInformation)
+			{
+				float X1 = MyCar.DrawingLocation.X - MyCar.ID().length() * 7;
+				float X2 = MyCar.DrawingLocation.X - MyCar.Location().length() * 7;
+				float X3 = MyCar.DrawingLocation.X - MyCar.Distance().length() * 7;
+				float X4 = MyCar.DrawingLocation.X - MyCar.Speed().length() * 7;
+
+				Canvas.drawText(MyCar.ID(), MyCar.DrawingLocation.X, MyCar.DrawingLocation.Y - 30, Paint);
+				Canvas.drawText(MyCar.Location(), MyCar.DrawingLocation.X, MyCar.DrawingLocation.Y - 10, Paint);
+				Canvas.drawText(MyCar.Speed(), MyCar.DrawingLocation.X, MyCar.DrawingLocation.Y + 80, Paint);
+			}
+		}
+		for (Car Car : RendererActivity.Cars.values())
+		{
+			if (Car != null && Car.ID != null && Car != MyCar)
+			{
+
+				Car.DrawingLocation.X = ((Car.Location.X + Route.FIELD__WIDTH_2) * Route._WIDTH_RATIO) + (((1 - Route._WIDTH_RATIO) / 2) * Route.DISPLAYED_FIELD__WIDTH);
+				Car.DrawingLocation.Y = ((Car.Location.Y + Route.FIELD_LENGTH_2) * Route.LENGTH_RATIO) + (((1 - Route.LENGTH_RATIO) / 2) * Route.DISPLAYED_FIELD_LENGTH);
+
+				Car.DrawingLocation.X = Car.DrawingLocation.X * Screen_To_Display_Field__Width_Ratio;
+				Car.DrawingLocation.Y = Car.DrawingLocation.Y * Screen_To_Display_Field_Length_Ratio;
+
+				Canvas.save();
+				Canvas.rotate(Car.Direction, Car.DrawingLocation.X, Car.DrawingLocation.Y);
+				Canvas.drawBitmap(Car.Vehicle, Car.DrawingLocation.X, Car.DrawingLocation.Y, Paint);
+				Canvas.rotate(-Car.Direction, Car.DrawingLocation.X, Car.DrawingLocation.Y);
+				Canvas.restore();
+				if (RendererActivity.ShowInformation)
+				{
+					float X1 = Car.DrawingLocation.X - Car.ID().length() * 7;
+					float X2 = Car.DrawingLocation.X - Car.Location().length() * 7;
+					float X3 = Car.DrawingLocation.X - Car.Distance().length() * 7;
+					float X4 = Car.DrawingLocation.X - Car.Speed().length() * 7;
+
+					Canvas.drawText(Car.ID(), Car.DrawingLocation.X, Car.DrawingLocation.Y - 30, Paint);
+					Canvas.drawText(Car.Location(), Car.DrawingLocation.X, Car.DrawingLocation.Y - 10, Paint);
+					Canvas.drawText(Car.Distance(), Car.DrawingLocation.X, Car.DrawingLocation.Y + 80, Paint);
+					Canvas.drawText(Car.Speed(), Car.DrawingLocation.X, Car.DrawingLocation.Y + 100, Paint);
+				}
+			}
+		}
+	}
+
+	private void DrawGraphicsZoomedOut(Canvas Canvas)
+	{
+
+		Canvas.drawColor(Color.LTGRAY);
+		Number3d Center = new Number3d(0, 0, 0);
+		//Number3d Center = new Number3d(MyCar.Location.X, MyCar.Location.Y, 0);
+
+		int Orientation = Resources.getConfiguration().orientation;
+
+		Width = (Orientation == Configuration.ORIENTATION_LANDSCAPE) ? Canvas.getWidth() : Canvas.getHeight() - 500;
+		Height = (Orientation == Configuration.ORIENTATION_LANDSCAPE) ? Canvas.getHeight() : Canvas.getWidth() + 600;
+
+		float Width__2 = Width / 2F;
+		float Height_2 = Height / 2F;
+
+		Translated_CenterX = Width * Route.FIELD__WIDTH / Route.DISPLAYED_FIELD__WIDTH;
+		Translated_CenterY = Height * Route.FIELD_LENGTH / Route.DISPLAYED_FIELD_LENGTH;
+		Screen_To_Display_Field__Width_Ratio = Width / Route.DISPLAYED_FIELD__WIDTH;
+		Screen_To_Display_Field_Length_Ratio = Height / Route.DISPLAYED_FIELD_LENGTH;
+
+		float DisplayGapX = ((1 - Route._WIDTH_RATIO) / 2);
+		float DisplayGapY = ((1 - Route.LENGTH_RATIO) / 2);
+		float IncremntX = ((DisplayGapX * Route.DISPLAYED_FIELD__WIDTH) * Screen_To_Display_Field__Width_Ratio);
+		float IncremntY = ((DisplayGapY * Route.DISPLAYED_FIELD_LENGTH) * Screen_To_Display_Field_Length_Ratio);
+		for (Number3d Location : Route.Locations)
+		{
+
+
+			float X = ((Location.X + Route.FIELD__WIDTH_2) * Route._WIDTH_RATIO) + (((1 - Route._WIDTH_RATIO) / 2) * Route.DISPLAYED_FIELD__WIDTH);
+			float Y = ((Location.Y + Route.FIELD_LENGTH_2) * Route.LENGTH_RATIO) + (((1 - Route.LENGTH_RATIO) / 2) * Route.DISPLAYED_FIELD_LENGTH);
+
+
+			X = X * Screen_To_Display_Field__Width_Ratio;
+			Y = Y * Screen_To_Display_Field_Length_Ratio;
+			//	float X = ((Location.X + Route.FIELD__WIDTH_2) * Screen_To_Display_Field__Width_Ratio) + (Route.GapX * (Width__2 - Translated_CenterX));
+			//	float Y = ((Location.Y + Route.FIELD_LENGTH_2) * Screen_To_Display_Field_Length_Ratio) + (Route.GapY * (Height_2 - Translated_CenterY));
+
+			Canvas.drawPoint(X, Y, Paint);
+		}
+
+
+		if (MyCar != null && MyCar.ID != null)
+		{
+
+
+			MyCar.DrawingLocation.X = ((MyCar.Location.X + Route.FIELD__WIDTH_2) * Route._WIDTH_RATIO) + (((1 - Route._WIDTH_RATIO) / 2) * Route.DISPLAYED_FIELD__WIDTH);
+			MyCar.DrawingLocation.Y = ((MyCar.Location.Y + Route.FIELD_LENGTH_2) * Route.LENGTH_RATIO) + (((1 - Route.LENGTH_RATIO) / 2) * Route.DISPLAYED_FIELD_LENGTH);
+
+			MyCar.DrawingLocation.X = MyCar.DrawingLocation.X * Screen_To_Display_Field__Width_Ratio;
+			MyCar.DrawingLocation.Y = MyCar.DrawingLocation.Y * Screen_To_Display_Field_Length_Ratio;
+
+			Canvas.save();
+			Canvas.rotate(MyCar.Direction, MyCar.DrawingLocation.X, MyCar.DrawingLocation.Y);
+			Canvas.drawBitmap(MyCar.Vehicle, MyCar.DrawingLocation.X, MyCar.DrawingLocation.Y, Paint);
+			//Canvas.drawBitmap(MyCar.Vehicle, MyCar.RelativeLocation.X, MyCar.RelativeLocation.Y, Paint);
+			Canvas.rotate(-MyCar.Direction, MyCar.DrawingLocation.X, MyCar.DrawingLocation.Y);
+			Canvas.restore();
+
+			if (RendererActivity.ShowInformation)
+			{
+				float X1 = MyCar.DrawingLocation.X - MyCar.ID().length() * 7;
+				float X2 = MyCar.DrawingLocation.X - MyCar.Location().length() * 7;
+				float X3 = MyCar.DrawingLocation.X - MyCar.Distance().length() * 7;
+				float X4 = MyCar.DrawingLocation.X - MyCar.Speed().length() * 7;
+
+				Canvas.drawText(MyCar.ID(), MyCar.DrawingLocation.X, MyCar.DrawingLocation.Y - 30, Paint);
+				Canvas.drawText(MyCar.Location(), MyCar.DrawingLocation.X, MyCar.DrawingLocation.Y - 10, Paint);
+				// Canvas.drawText(MyCar.Distance(), MyCar.DrawingLocation.X, MyCar.DrawingLocation.Y + 120, Paint);
+				Canvas.drawText(MyCar.Speed(), MyCar.DrawingLocation.X, MyCar.DrawingLocation.Y + 80, Paint);
+
+			}
+		}
+		for (Car Car : RendererActivity.Cars.values())
+		{
+			if (Car != null && Car.ID != null && Car != MyCar)
+			{
+
+				Car.DrawingLocation.X = ((Car.Location.X + Route.FIELD__WIDTH_2) * Route._WIDTH_RATIO) + (((1 - Route._WIDTH_RATIO) / 2) * Route.DISPLAYED_FIELD__WIDTH);
+				Car.DrawingLocation.Y = ((Car.Location.Y + Route.FIELD_LENGTH_2) * Route.LENGTH_RATIO) + (((1 - Route.LENGTH_RATIO) / 2) * Route.DISPLAYED_FIELD_LENGTH);
+
+				Car.DrawingLocation.X = Car.DrawingLocation.X * Screen_To_Display_Field__Width_Ratio;
+				Car.DrawingLocation.Y = Car.DrawingLocation.Y * Screen_To_Display_Field_Length_Ratio;
+
+				Canvas.save();
+				Canvas.rotate(Car.Direction, Car.DrawingLocation.X, Car.DrawingLocation.Y);
+				Canvas.drawBitmap(Car.Vehicle, Car.DrawingLocation.X, Car.DrawingLocation.Y, Paint);
+				Canvas.rotate(-Car.Direction, Car.DrawingLocation.X, Car.DrawingLocation.Y);
+				Canvas.restore();
+				if (RendererActivity.ShowInformation)
+				{
+					float X1 = Car.DrawingLocation.X - Car.ID().length() * 7;
+					float X2 = Car.DrawingLocation.X - Car.Location().length() * 7;
+					float X3 = Car.DrawingLocation.X - Car.Distance().length() * 7;
+					float X4 = Car.DrawingLocation.X - Car.Speed().length() * 7;
+
+					Canvas.drawText(Car.ID(), Car.DrawingLocation.X, Car.DrawingLocation.Y - 30, Paint);
+					Canvas.drawText(Car.Location(), Car.DrawingLocation.X, Car.DrawingLocation.Y - 10, Paint);
+					Canvas.drawText(Car.Distance(), Car.DrawingLocation.X, Car.DrawingLocation.Y + 80, Paint);
+					Canvas.drawText(Car.Speed(), Car.DrawingLocation.X, Car.DrawingLocation.Y + 100, Paint);
+				}
+			}
+		}
+	}
+}

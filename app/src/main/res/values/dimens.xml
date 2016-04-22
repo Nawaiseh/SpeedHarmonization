@@ -1,0 +1,17 @@
+<resources>
+    <!-- Default screen margins, per the Android Design guidelines. -->
+    <dimen name="activity_horizontal_margin">16dp</dimen>
+
+    <dimen name="activity_vertical_margin">16dp</dimen>
+
+    <dimen name="navigation_drawer_width">240dp</dimen>
+
+    <dimen name="fab_margin">16dp</dimen>
+
+
+    <color name="alert_color">#afffda22</color>
+    <color name="normal_color">#FFCACACA</color>
+    <color name="MyCar_color">#FFFF2222</color>
+    <color name="OtherCars_color">#0d26e2</color>
+
+</resources>
