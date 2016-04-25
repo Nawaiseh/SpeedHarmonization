@@ -35,6 +35,9 @@ public class Car
 	public float Direction = 0;
 	public CarType Type = CarType.OtherCar;
 	public Bitmap Vehicle;
+	public int Location_Index;
+	public int MODIFY_SPEED_RATE = 10; // in Seconds
+	public int TIME_LEFT_TO_UPDATE_SPEED = 10; // in Seconds
 
 	public Car()
 	{
@@ -46,7 +49,6 @@ public class Car
 		Velocity.X = -0.5F + Random.nextFloat();
 		Velocity.Y = -0.5F + Random.nextFloat();
 	}
-
 
 	public Car(String ID, float Latitude, float Longitude, float Altitude, float Speed, float Direction, float Width, float Length, float Height)
 	{
@@ -83,6 +85,15 @@ public class Car
 		{
 			LastUpdated = System.currentTimeMillis();
 		}
+	}
+
+	public Car(float Speed, int Location_Index, int MODIFY_SPEED_RATE)
+	{
+		this.MODIFY_SPEED_RATE = TIME_LEFT_TO_UPDATE_SPEED = MODIFY_SPEED_RATE;
+		this.Speed = Speed;
+		this.Location_Index = Location_Index;
+		/*this.GraphicsLocation.X = Route.Locations.get(Location_Index).X;
+		this.GraphicsLocation.Y = Route.Locations.get(Location_Index).Y;*/
 	}
 
 	public static float ConvertDistance(float Distance, DistanceUnit DistanceUnit)
@@ -194,7 +205,6 @@ public class Car
 		}
 		return new String(HexBuffer).trim();
 	}
-
 
 	public void SetData(String ID, float Latitude, float Longitude, float Altitude, float Speed, float Direction, float Width, float Length, float Height)
 	{
@@ -349,9 +359,11 @@ public class Car
 
 	}
 
-	public String ID()
+	public String ID(boolean AddHeader)
 	{
-		return String.format("ID = %s", ID);
+		String __ID = (ID == null) ? "Me" : ID;
+		return ((AddHeader) ? String.format("ID = %s", __ID) : __ID);
+
 	}
 
 	/*
@@ -360,19 +372,22 @@ public class Car
 		return String.format("@(%.2f , %.2f )", Location.X, Location.Y);
 	}
 */
-	public String Location()
+	public String Location(boolean AddHeader)
 	{
-		return String.format("@(%.3f , %.3f )", Longitude, Latitude);
+		String __Location = String.format("(%.3f , %.3f)", Longitude, Latitude);
+		return ((AddHeader) ? String.format("@%s", __Location) : __Location);
 	}
 
-	public String Distance()
+	public String Distance(boolean AddHeader)
 	{
-		return String.format("Distance = %.3f", Distance);
+		String __Distance = String.format("%.3f", Distance);
+		return ((AddHeader) ? String.format("Distance = %s", __Distance) : __Distance);
 	}
 
-	public String Speed()
+	public String Speed(boolean AddHeader)
 	{
-		return String.format("Speed = %.2f M/H", Speed);
+		String __Speede = String.format("%.3f", Speed);
+		return ((AddHeader) ? String.format("Speed = %s", __Speede) : __Speede);
 	}
 
 	public String Position(PositionType PositionType)
@@ -396,36 +411,6 @@ public class Car
 				return String.format("(%.2f,%.2f,%.2f)", Latitude, Longitude, Altitude);
 		}
 	}
-
-	public enum CarType
-	{
-		OtherCar, MyCar
-	}
-
-	public enum PositionType
-	{
-		Latitude, Longitude, Altitude, NoLatitude, NoLongitude, NoAltitude, All
-	}
-
-
-	public enum DistanceUnit
-	{
-		Miles, Meters, KiloMeters, Inches
-	}
-
-	public int Location_Index;
-	public int MODIFY_SPEED_RATE = 10; // in Seconds
-	public int TIME_LEFT_TO_UPDATE_SPEED = 10; // in Seconds
-
-	public Car(float Speed, int Location_Index, int MODIFY_SPEED_RATE)
-	{
-		this.MODIFY_SPEED_RATE = TIME_LEFT_TO_UPDATE_SPEED = MODIFY_SPEED_RATE;
-		this.Speed = Speed;
-		this.Location_Index = Location_Index;
-		/*this.GraphicsLocation.X = Route.Locations.get(Location_Index).X;
-		this.GraphicsLocation.Y = Route.Locations.get(Location_Index).Y;*/
-	}
-
 
 	public void ModifySpeed(float Speed)
 	{
@@ -466,6 +451,22 @@ public class Car
 			//this.Direction = 0;
 		}
 		this.LastUpdated = System.currentTimeMillis();
+	}
+
+	public enum CarType
+	{
+		OtherCar, MyCar
+	}
+
+
+	public enum PositionType
+	{
+		Latitude, Longitude, Altitude, NoLatitude, NoLongitude, NoAltitude, All
+	}
+
+	public enum DistanceUnit
+	{
+		Miles, Meters, KiloMeters, Inches
 	}
 
 }

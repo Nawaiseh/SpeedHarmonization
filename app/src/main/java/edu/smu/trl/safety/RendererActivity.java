@@ -8,7 +8,6 @@ import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Matrix;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -20,17 +19,14 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ArrayAdapter;
-import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.util.Random;
 import java.util.TreeMap;
 
 import edu.smu.trl.safety.Data.Car;
-import edu.smu.trl.safety.Data.Route;
 import edu.smu.trl.safety.Graphics.SurfaceView;
 import edu.smu.trl.safety.Graphics.Utilities;
 import edu.smu.trl.safety.bluetooth.BluetoothChatService;
@@ -99,14 +95,15 @@ public class RendererActivity extends AppCompatActivity
 	public Car MyCar = new Car();
 	public boolean RotationAllowed = false;
 	public Bitmap[] BitMaps;
+	public Bitmap Car_Blue;
+	public Bitmap Compass;
+	public Bitmap Data_Header, Row_0, Row;
+	public boolean ShowInformation = true;
+	public boolean TableView = true;
 	protected PowerManager.WakeLock WakeLock;
 	private Bitmap Car_Red;
 	private Bitmap Car_Green;
-	public Bitmap Car_Blue;
 	private Bitmap Car_Yellow;
-	public Bitmap Compass;
-	public boolean ShowInformation = true;
-	public float SignX = 1, SignY = 1;
 
 	protected void SetStatus(int ResourceID)
 	{
@@ -513,20 +510,12 @@ public class RendererActivity extends AppCompatActivity
 				return true;
 			}
 
-			case R.id.X_Sign:
+			case R.id.TableView:
 			{
-				SignX = -SignX;
+				TableView = !TableView;
+				MenuItem.setIcon((TableView) ? R.drawable.table : R.drawable.normal_view);
 				return true;
 			}
-			case R.id.Y_Sign:
-			{
-				SignY = -SignY;
-				return true;
-			}
-
-
-
-
 		}
 		return super.onOptionsItemSelected(MenuItem);
 	}
@@ -667,6 +656,11 @@ public class RendererActivity extends AppCompatActivity
 		Car_Blue = Utilities.ResizeBitmap(BitmapFactory.decodeResource(getResources(), R.mipmap.car_blue), Car.Width, Car.Length);
 		Car_Yellow = Utilities.ResizeBitmap(BitmapFactory.decodeResource(getResources(), R.mipmap.car_yellow), Car.Width, Car.Length);
 		Compass = Utilities.ResizeBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.compass), 100, 100);
+
+		Data_Header = Utilities.ResizeBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.data_header), 200, 30);
+		Row_0 = Utilities.ResizeBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.data_row_0), 200, 20);
+		Row = Utilities.ResizeBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.data_row), 200, 20);
+
 		BitMaps = new Bitmap[]{Car_Blue, Car_Red, Car_Green, Car_Yellow};
 
 		MyCar.Vehicle = BitMaps[0];

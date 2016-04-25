@@ -43,6 +43,7 @@ public class GraphicsLoop implements Runnable
 	Number3d Other_Car_Location = new Number3d(0, 0, 0);
 	Number3d Location = new Number3d(0, 0, 0);
 	float MinDistance = Float.MAX_VALUE;
+	int RowHeight = 20;
 	private boolean Running = true;
 	private float Width, Width__2;
 	private float Height, Height_2;
@@ -60,7 +61,7 @@ public class GraphicsLoop implements Runnable
 		this.Resources = Resources;
 		this.RendererActivity = (RendererActivity) Context;
 		MyCar = RendererActivity.MyCar;
-		Paint.setTextSize(10);   // Font Size
+
 	}
 
 	@Override
@@ -214,21 +215,58 @@ public class GraphicsLoop implements Runnable
 	private void Draw_My_Car(Canvas Canvas)
 	{
 		Canvas.save();
+
 		Canvas.translate((Width__2 - DX), (Height_2 - DY));
 		Canvas.drawBitmap(RendererActivity.Car_Blue, 0, 0, Paint);
 
 
-		if (RendererActivity.ShowInformation && MyCar != null)
+		if (RendererActivity.ShowInformation && RendererActivity.TableView == false)
 		{
 			String GL = String.format("(%.2f , %.2f)", Width__2, Height_2);
-			Canvas.drawText(GL, -(GL.length() / 2f) * 5f,  - 50, Paint);
-			Canvas.drawText(MyCar.Location(), -(MyCar.Location().length() / 2f) * 5f, -30, Paint);
-			Canvas.drawText(MyCar.Speed(), -(MyCar.Speed().length() / 2f) * 5f, -10, Paint);
+			Canvas.drawText(GL, -(GL.length() / 2f) * 5f, -50, Paint);
+			Canvas.drawText(MyCar.Location(true), -(MyCar.Location(true).length() / 2f) * 5f, -30, Paint);
+			Canvas.drawText(MyCar.Speed(true), -(MyCar.Speed(true).length() / 2f) * 5f, -10, Paint);
 		}
 		Canvas.restore();
 		Canvas.save();
 		Canvas.drawBitmap(Utilities.RotateBitmap(RendererActivity.Compass, My_Rotation_Angle_In_Degrees), 0, 0, Paint);
 		Canvas.restore();
+	}
+
+	private void DisplayCarsInformation(Canvas Canvas)
+	{
+		Paint.setTextSize(10);   // Font Size
+		if (RendererActivity.ShowInformation && RendererActivity.TableView)
+		{
+			int X = 10;
+			int Y = 120;
+
+			Canvas.drawBitmap(Utilities.RotateBitmap(RendererActivity.Data_Header, My_Rotation_Angle_In_Degrees), X, Y, Paint);
+			Y += 30;
+			DisplayInformation(Canvas, MyCar, Y);
+			for (Car Car : RendererActivity.Cars.values())
+			{
+				Y += RowHeight;
+				DisplayInformation(Canvas, Car, Y);
+			}
+		}
+	}
+
+	private void DisplayInformation(Canvas Canvas, Car Car, int Y)
+	{
+		int X = 10;
+		int ColumnWidth = 200 / 3;
+
+		Canvas.drawBitmap(Utilities.RotateBitmap(RendererActivity.Row_0, My_Rotation_Angle_In_Degrees), X, Y, Paint);
+		Y += (RowHeight / 2) + 5;
+		X += 5;
+		Canvas.drawText(Car.ID(false), X, Y, Paint);
+		X += ColumnWidth + 10;
+		Canvas.drawText(Car.Distance(false), X, Y, Paint);
+		X += ColumnWidth;
+		Canvas.drawText(Car.Speed(false), X, Y, Paint);
+		X += ColumnWidth;
+
 	}
 
 	private void Draw_Other_Cars(Canvas Canvas)
@@ -246,8 +284,8 @@ public class GraphicsLoop implements Runnable
 				Other_Car_Location.RotateAroundPoint(My_Car_Location, Theta);
 
 
-				Other_Car_Location.X = (Other_Car_Location.X - My_Car_Location.X) * RendererActivity.SignX;
-				Other_Car_Location.Y = (Other_Car_Location.Y - My_Car_Location.Y) * RendererActivity.SignY;
+				Other_Car_Location.X = (Other_Car_Location.X - My_Car_Location.X);
+				Other_Car_Location.Y = (Other_Car_Location.Y - My_Car_Location.Y);
 
 
 				Other_Car_Location.X = (Other_Car_Location.X * Scale);
@@ -261,21 +299,18 @@ public class GraphicsLoop implements Runnable
 				Canvas.drawBitmap(Car.Vehicle, Other_Car_Location.X, -Other_Car_Location.Y, Paint);
 				Canvas.rotate(-Theta, Other_Car_Location.X, -Other_Car_Location.Y);
 
-				if (RendererActivity.ShowInformation)
-				{
 
-					String GL = String.format("(%.2f , %.2f)", Other_Car_Location.X, Other_Car_Location.Y);
-					Canvas.drawText(GL, -( GL.length() / 2f) * 5f, 80 + (100 * I), Paint);
-					Canvas.drawText(Car.Location(), -( Car.Location().length() / 2f) * 5f, 60 + (100 * I), Paint);
-					Canvas.drawText(Car.Distance(), -( Car.Distance().length() / 2f) * 5f,  40 + (100 * I), Paint);
-					Canvas.drawText(Car.Speed(), -( Car.Speed().length() / 2f) * 5f,  20 + (100 * I), Paint);
-					I++;
-/*
+				if (RendererActivity.ShowInformation && RendererActivity.TableView == false)
+				{
+					/*Canvas.drawText(Car.Location(true), -(Car.Location(true).length() / 2f) * 5f, 60 + (100 * I), Paint);
+					Canvas.drawText(Car.Distance(true), -(Car.Distance(true).length() / 2f) * 5f, 40 + (100 * I), Paint);
+					Canvas.drawText(Car.Speed(true), -(Car.Speed(true).length() / 2f) * 5f, 20 + (100 * I), Paint);
+					I++;*/
 					String GL = String.format("(%.2f , %.2f_", Other_Car_Location.X, Other_Car_Location.Y);
-					Canvas.drawText(GL,-(Other_Car_Location.X - GL.length() / 2f) * 5f, Other_Car_Location.Y - 70, Paint);
-					Canvas.drawText(Car.Location(),-(Other_Car_Location.X - Car.Location().length() / 2f) * 5f, Other_Car_Location.Y - 50, Paint);
-					Canvas.drawText(Car.Distance(), -(Other_Car_Location.X - Car.Distance().length() / 2f) * 5f, Other_Car_Location.Y - 30, Paint);
-					Canvas.drawText(Car.Speed(), -(Other_Car_Location.X - Car.Speed().length() / 2f) * 5f, Other_Car_Location.Y - 10, Paint);*/
+					Canvas.drawText(GL, -(Other_Car_Location.X - GL.length() / 2f) * 5f, Other_Car_Location.Y - 70, Paint);
+					Canvas.drawText(Car.Location(true), -(Other_Car_Location.X - Car.Location(true).length() / 2f) * 5f, Other_Car_Location.Y - 50, Paint);
+					Canvas.drawText(Car.Distance(true), -(Other_Car_Location.X - Car.Distance(true).length() / 2f) * 5f, Other_Car_Location.Y - 30, Paint);
+					Canvas.drawText(Car.Speed(true), -(Other_Car_Location.X - Car.Speed(true).length() / 2f) * 5f, Other_Car_Location.Y - 10, Paint);
 				}
 
 			}
@@ -292,5 +327,6 @@ public class GraphicsLoop implements Runnable
 		Draw_Other_Cars(Canvas);
 		Canvas.restore();
 		Draw_My_Car(Canvas);
+		DisplayCarsInformation(Canvas);
 	}
 }

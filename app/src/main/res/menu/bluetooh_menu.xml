@@ -25,17 +25,12 @@
         android:visible="true"
         app:showAsAction="always"/>
     <item
-        android:id="@+id/X_Sign"
-        android:icon="@drawable/x_sign"
-        android:title="X Sign"
+        android:id="@+id/TableView"
+        android:icon="@drawable/table"
+        android:title="Table View"
         android:visible="true"
         app:showAsAction="always"/>
-    <item
-        android:id="@+id/Y_Sign"
-        android:icon="@drawable/y_sign"
-        android:title="Y Sign"
-        android:visible="true"
-        app:showAsAction="always"/>
+
     <item
         android:id="@+id/ShowInformation"
         android:icon="@drawable/information_enabled"
